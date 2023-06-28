@@ -26,6 +26,8 @@ import ctypes
 import libs.tisgrabber as tis
 import signal
 import sys
+import os, PIL
+from PIL import Image
 
 # DMK 33UX174
 # https://www.theimagingsource.com/en-us/product/industrial/33u/dmk33ux174/
@@ -141,6 +143,14 @@ def pulse_end(board_num, timer_num):
     ul.pulse_out_stop(board_num, timer_num)
     print('Timer output stopped.')
     ul.release_daq_device(board_num)
+
+def crop_images(directory, left, top, right, bottom):
+    for filename in os.listdir(directory):
+        if filename.startswith('s_'):
+            im = Image.open('%s/%s'%(directory, filename))
+            im = im.crop((left,top,right,bottom))
+            newfilename = 'c' + filename[1:]
+            im.save('%s/%s'%(directory, newfilename))
         
 
     # Serial.println("\n[C] ---------------------- Charge Enable");
@@ -256,7 +266,7 @@ if __name__ == '__main__':
             print('[WR] {Frequency (Hz)} {Duty Ratio} --- Repeated Up-Pulse')
             print('[SR] {Frequency (Hz)} {Duty Ratio} --- Repeated Down-Pulse')
         print('[R] ---------------------------------- Toggle Pulse Input Mode')
-        print('[U] ---------------------------------- Capture 1s of 80 FPS')
+        print('[U] { Left} {Top} {Right} {Bottom} ---- Capture 1s of 80 FPS')
         print('[Q] ---------------------------------- Quit')
 
         print('\nPrevious command:    %s'%(command))
@@ -357,7 +367,7 @@ if __name__ == '__main__':
                 retval = ic.IC_SnapImage(hGrabber, 2000)
                 if retval == tis.IC_SUCCESS:
                     t = int(1000*(time.time() - t0))
-                    ic.IC_SaveImage(hGrabber, tis.T('data/s_%s_%shz%sdc_%03d_%03d_%06d.bmp'%(prev_cmd, actual_frequency, actual_duty_cycle, bat_num, img_num, t)), tis.ImageFileTypes['BMP'], 90)
+                    ic.IC_SaveImage(hGrabber, tis.T('data/s_%s_%shz%sdc_%03d_%03d_%06d.bmp'%(prev_cmd, actual_frequency, actual_duty_cycle, bat_num, img_num, t)), tis.ImageFileTypes['JPG'], 90)
                     # print('Image saved.')
                     img_num+=1
                 else:
@@ -367,85 +377,12 @@ if __name__ == '__main__':
                     break
             bat_num+=1
 
+            print('CROPPING')
+
+            crop_images('data', 808,501,808+459,501+477)
+
             print('COMPLETE')
             pass
 
         else:
             continue
-        
-        continue
-
-        # This is the pulsing input menu loop.
-        while(True):
-            print('\n\n----------------------\n')
-            print('Enter -2 to exit the pulse menu.')
-            print('Enter -1 to switch input modes.')
-        
-            if pulsing:
-                print('Pulsing: Enter 0 to cease pulsing.')
-            else:
-                print('Not pulsing.')
-        
-            if cadence_mode:
-                print('CADENCE INPUT MODE')
-
-                on_time = float(input('On-time (ns): '))
-
-                if on_time == 0 and pulsing:
-                    pulse_end(board_num, timer_num)
-                    pulsing = False
-                    continue
-                elif on_time == -1:
-                    cadence_mode = not cadence_mode
-                    continue
-                elif on_time == -2:
-                    break
-
-                cadence = float(input('Cadence (ms): '))
-
-                if cadence == 0 and pulsing:
-                    pulse_end(board_num, timer_num)
-                    pulsing = False
-                    continue
-                elif cadence == -1:
-                    cadence_mode = not cadence_mode
-                    continue
-                elif cadence == -2:
-                    break
-
-                frequency = (1.0 / (cadence * 1e-3))
-                duty_cycle = (on_time / (cadence * 1e6))
-            else:
-                print('FREQUENCY INPUT MODE')
-
-                frequency = float(input('Frequency (Hz): '))
-
-                if frequency == 0 and pulsing:
-                    pulse_end(board_num, timer_num)
-                    pulsing = False
-                    continue
-                elif frequency == -1:
-                    cadence_mode = not cadence_mode
-                    continue
-                elif frequency == -2:
-                    break
-                
-                duty_cycle = float(input('Duty ratio: '))
-
-                if duty_cycle == 0 and pulsing:
-                    pulse_end(board_num, timer_num)
-                    pulsing = False
-                    continue
-                elif duty_cycle == -1:
-                    cadence_mode = not cadence_mode
-                    continue
-                elif duty_cycle == -2:
-                    break
-            
-            if pulsing:
-                pulse_end(board_num, timer_num)
-
-            pulsing = True
-            board_num, timer_num = pulse_begin(frequency, duty_cycle)
-
-
