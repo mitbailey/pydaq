@@ -164,6 +164,7 @@ if __name__ == '__main__':
             print('[WR] {Frequency (Hz)} {Duty Ratio} --- Repeated Up-Pulse')
             print('[SR] {Frequency (Hz)} {Duty Ratio} --- Repeated Down-Pulse')
         print('[R] ---------------------------------- Toggle Pulse Input Mode')
+        print('[X] ---------------------------------- Special\n')
 
         print('\nPrevious command:    %s'%(command))
         print('Current status:      %s\n'%(status))
@@ -242,6 +243,61 @@ if __name__ == '__main__':
         elif toks[0] == 'R' or toks[0] == 'r':
             cadence_mode = not cadence_mode
             pass
+
+        elif toks[0] == 'X':
+            # Special stepping.
+
+            print('Performing special stepping...')
+
+            status = 'SPECIAL STEPPING'
+
+            # Setup initial values.
+            _dist_ms = 1000
+            step_len_ns = 500
+            frequency = (1.0 / ((_dist_ms * 1e-3)+step_len_ns * 1e-9))
+            duty_cycle = (step_len_ns / (_dist_ms * 1e6))
+
+            step_set_up = [500, 400, 200, 50, 50, 50, 50, 0, 0, 0, 0]
+            step_set_dn = step_set_up.reverse() * -1
+
+            # Charge to some initial value.
+            for i in range(10):
+                board_num, timer_num = pulse_begin(frequency, duty_cycle, CHG_EN)
+                sleep(0.5)
+                pulse_end(board_num, DCHG_EN)
+
+                sleep(1)
+
+            for _ in range(10):
+                # Step up.
+                for i in range(len(step_set_up)):
+                    if step_set_up[i] == 0:
+                        continue
+
+                    frequency = (1.0 / ((_dist_ms * 1e-3)+step_set_up[i] * 1e-9))
+                    duty_cycle = (step_set_up[i] / (_dist_ms * 1e6))
+
+                    board_num, timer_num = pulse_begin(frequency, duty_cycle, CHG_EN)
+                    sleep(0.5)
+                    pulse_end(board_num, DCHG_EN)
+
+                    sleep(1)
+
+                # Step down.
+                for i in range(len(step_set_dn)):
+                    if step_set_dn[i] == 0:
+                        continue
+
+                    frequency = (1.0 / ((_dist_ms * 1e-3)+step_set_dn[i] * 1e-9))
+                    duty_cycle = (step_set_dn[i] / (_dist_ms * 1e6))
+
+                    board_num, timer_num = pulse_begin(frequency, duty_cycle, CHG_EN)
+                    sleep(0.5)
+                    pulse_end(board_num, DCHG_EN)
+
+                    sleep(1)
+            
+
 
         else:
             continue
